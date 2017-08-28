@@ -228,7 +228,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
         ,data: $.extend({
           page: curr
           ,limit: options.limit
-        }, options.where)
+        }, options.where, that.sortKey)
         ,success: function(res){
           if(res.code != 0){
             return layer.msg(res.msg);
@@ -277,9 +277,9 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     
     //渲染视图
     ,render = function(){
-      if(!sort && that.sortKey){
-        return that.sort(that.sortKey.field, that.sortKey.sort, true);
-      }
+      // if(!sort && that.sortKey){
+      //   return that.sort(that.sortKey.field, that.sortKey.sort, true);
+      // }
       layui.each(data, function(i1, item1){
         var tds = [], tds_fixed = [], tds_fixed_r = [];
         that.eachCols(function(i3, item3){
@@ -430,24 +430,29 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       return hint.error('未到匹配field');
     }
     
+    if (type) {
     that.sortKey = {
       field: field
       ,sort: type
     };
-
-    if(type === 'asc'){ //升序
-      thisData = layui.sort(thisData, field);
-    } else if(type === 'desc'){ //降序
-      thisData = layui.sort(thisData, field, true);
-    } else { //清除排序
-      thisData = that.cacheData;
+    } else {
       delete that.sortKey;
     }
 
-    that.renderData({
-      data: thisData
-    }, that.page, that.count, true);
-    layer.close(that.tipsIndex);
+    that.pullData(that.page, that.loading());
+    // if(type === 'asc'){ //升序
+    //   thisData = layui.sort(thisData, field);
+    // } else if(type === 'desc'){ //降序
+    //   thisData = layui.sort(thisData, field, true);
+    // } else { //清除排序
+    //   thisData = that.cacheData;
+    //   delete that.sortKey;
+    // }
+    //
+    // that.renderData({
+    //   data: thisData
+    // }, that.page, that.count, true);
+    // layer.close(that.tipsIndex);
   };
   
   //请求loading

@@ -22,6 +22,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     config: {
       checkName: 'LAY_CHECKED' //是否选中状态的字段名
       ,indexName: 'LAY_TABLE_INDEX' //下标索引名
+      ,expandName: 'LAY_EXPANDED' //是否展开状态的字段名
     } //全局配置项
     ,cache: {} //数据缓存
     ,index: layui.table ? (layui.table.index + 10000) : 0
@@ -95,6 +96,8 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
             ,'" {{#if(item2.align){}}align="{{item2.align}}"{{#}}}>'
               ,'{{# if(item2.type === "checkbox"){ }}' //复选框
                 ,'<input type="checkbox" name="layTableCheckbox" lay-skin="primary" lay-filter="layTableAllChoose" {{# if(item2[d.data.checkName]){ }}checked{{# }; }}>'
+              ,'{{# else if(item2.type === "expandable"){ }}' //复选框
+                ,'<input type="checkbox" name="layTableExpandable" lay-skin="expand" lay-filter="layTableAllExpand" {{# if(item2[d.data.checkName]){ }}checked{{# }; }}>'
               ,'{{# } else { }}'
                 ,'<span>{{item2.title||""}}</span>'
                 ,'{{# if(!(item2.colspan > 1) && item2.sort){ }}'
@@ -287,6 +290,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     
     //让 type 参数兼容旧版本
     if(item.checkbox) item.type = "checkbox";
+    if(item.expandable) item.type = "expandable";
     if(item.space) item.type = "space";
     if(!item.type) item.type = "normal";
     
@@ -483,7 +487,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     ,trs = []
     ,trs_fixed = []
     ,trs_fixed_r = []
-    
+
     //渲染视图
     ,render = function(){ //后续性能提升的重点
       if(!sort && that.sortKey){
@@ -491,7 +495,10 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       }
       layui.each(data, function(i1, item1){
         var tds = [], tds_fixed = [], tds_fixed_r = []
-        ,numbers = i1 + options.limit*(curr - 1) + 1; //序号
+        ,numbers = i1 + options.limit*(curr - 1) + 1 //序号
+        ,expandable = false
+        ,space = false
+        ,colCnt = 0;
         
         if(item1.length === 0) return;
         if(!sort){
@@ -537,6 +544,12 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
                   }
                   return tplData[checkName] ? 'checked' : '';
                 }() +'>';
+              } else if(item3.expandable){
+                expandable = true;
+                return '<input type="checkbox" name="layTableExpandable" lay-skin="expand">';
+              } else if(item3.space){
+                space = true;
+                colCnt--;
               } else if(item3.type === 'numbers'){ //渲染序号
                 return numbers;
               }
@@ -551,6 +564,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
           ,'</div></td>'].join('');
           
           tds.push(td);
+          colCnt++;
           if(item3.fixed && item3.fixed !== 'right') tds_fixed.push(td);
           if(item3.fixed === 'right') tds_fixed_r.push(td);
         });
@@ -558,6 +572,15 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
         trs.push('<tr data-index="'+ i1 +'">'+ tds.join('') + '</tr>');
         trs_fixed.push('<tr data-index="'+ i1 +'">'+ tds_fixed.join('') + '</tr>');
         trs_fixed_r.push('<tr data-index="'+ i1 +'">'+ tds_fixed_r.join('') + '</tr>');
+        if (expandable){
+          trs.push('<tr class="' + HIDE + '" data-expand-index="' + i1 + '">' + function () {
+              if (space) {
+                return '<td><div class="layui-table-cell laytable-cell-space"></div></td>';
+              }
+            }() + '<td data-name="expand-content" colspan="' + colCnt + '"></td></tr>');
+          trs_fixed.push('<tr data-expand-index="' + i1 + '" class="' + HIDE + '"><td><div class="layui-table-cell laytable-cell-space"></div></td></tr>');
+          trs_fixed_r.push('<tr data-expand-index="' + i1 + '"  class="' + HIDE + '"><td><div class="layui-table-cell laytable-cell-space"></div></td></tr>');
+        }
       });
       
       that.layBody.scrollTop(0);
@@ -724,6 +747,15 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     if(!thisData[index]) return;
     if(thisData[index].constructor === Array) return;
     thisData[index][options.checkName] = checked;
+  };
+
+  //同步展开状态
+  Class.prototype.setExpandData = function(index, checked){
+    var that = this
+      ,config = that.config
+      ,thisData = table.cache[that.key];
+    if(!thisData[index]) return;
+    thisData[index][config.expandName] = checked;
   };
   
   //同步全选按钮状态
@@ -978,6 +1010,37 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
         checked: checked
         ,data: table.cache[that.key][index]
         ,type: isAll ? 'all' : 'one'
+      });
+    });
+
+    //展开/收起事件
+    that.elem.on('click', 'input[name="layTableExpandable"]+', function(){
+      var expandable = $(this).prev()
+        ,index = expandable.parents('tr').eq(0).data('index')
+        ,checked = expandable[0].checked
+        ,content = expandable.parents('tr').eq(0).next('tr')
+        ,contentFixLeft = that.layFixLeft.find('tbody tr[data-expand-index="' + index + '"]')
+        ,contentFixRight = that.layFixRight.find('tbody tr[data-expand-index="' + index + '"]');
+
+      that.setExpandData(index, checked);
+      content[checked ? 'removeClass' : 'addClass'](HIDE);
+      contentFixLeft[checked ? 'removeClass' : 'addClass'](HIDE);
+      contentFixRight[checked ? 'removeClass' : 'addClass'](HIDE);
+
+      layui.event.call(this, MOD_NAME, 'expandable('+ filter +')', {
+        expanded: checked
+        ,data: table.cache[that.key][index]
+        ,hasContent: content.find('td[data-name="expand-content"]').is(':empty')
+        ,addContent: function (element) {
+          var target = content.find('td[data-name="expand-content"]');
+          if (!checked) return;
+          if (!target.is(':empty')) {
+            target.html('');
+          }
+          target.append(element);
+          contentFixLeft.find('td:first').height(target.height());
+          contentFixRight.find('td:first').height(target.height());
+        }
       });
     });
     

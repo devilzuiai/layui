@@ -317,7 +317,7 @@ layui.define('layer', function(exports){
         }
         
         checks.each(function(index, check){
-          var othis = $(this), skin = othis.attr('lay-skin')
+          var othis = $(this), skin = othis.attr('lay-skin'), icon = othis.attr('lay-icon')
           ,text = (othis.attr('lay-text')||'').split('|'), disabled = this.disabled;
           if(skin === 'switch') skin = '_'+skin;
           var RE_CLASS = CLASS[skin] || CLASS.checkbox;
@@ -328,9 +328,15 @@ layui.define('layer', function(exports){
           var hasRender = othis.next('.' + RE_CLASS[0]);
           var reElem = $(['<div class="layui-unselect '+ RE_CLASS[0] + (
             check.checked ? (' '+RE_CLASS[1]) : '') + (disabled ? ' layui-checkbox-disbaled '+DISABLED : '') +'" lay-skin="'+ (skin||'') +'">'
-          ,{
-            _switch: '<em>'+ ((check.checked ? text[0] : text[1])||'') +'</em><i></i>'
-          }[skin] || ((check.title.replace(/\s/g, '') ? ('<span>'+ check.title +'</span>') : '') +'<i class="layui-icon">'+ (skin ? '&#xe605;' : '&#xe618;') +'</i>')
+          ,function () {
+              if (skin === '_switch'){
+                return '<em>'+ ((check.checked ? text[0] : text[1])||'') +'</em><i></i>';
+              } else if (skin === 'expand'){
+                return '<i class="layui-icon">&#xe602;</i>';
+              } else{
+                return ((check.title.replace(/\s/g, '') ? ('<span>'+ check.title +'</span>') : '') +'<i class="layui-icon">'+ (skin ? '&#xe605;' : '&#xe618;') +'</i>');
+              }
+            }()
           ,'</div>'].join(''));
 
           hasRender[0] && hasRender.remove(); //如果已经渲染，则Rerender
